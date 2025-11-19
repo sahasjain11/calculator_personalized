@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIMANSHU TECHNOLOGY LIMITED - Pure Weight Tracking System</title>
+    <!-- Tailwind CSS Load Karein -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font Family ka upyog karein -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            min-height: 100vh;
+        }
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #a855f7;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: #f3e8ff;
+        }
+        .calculator-card {
+            box-shadow: 0 10px 25px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+
+        /* Adjusting Modal for better view */
+        #invoice-modal .modal-content-wrapper {
+            max-height: 90vh; 
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Making invoice content scrollable */
+        #invoice-scroll-area {
+            overflow-y: auto;
+            flex-grow: 1; 
+        }
+
+        /* Print CSS ke liye */
+      @media print {
+    /* Hide everything by default */
+    body * {
+        visibility: hidden !important;
+    }
+
+    /* Show only the invoice modal and its contents */
+    #invoice-modal, #invoice-modal * {
+        visibility: visible !important;
+    }
+
+    /* Make invoice modal full-width for print */
+    #invoice-modal {
+        position: static !important;
+        background: none !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+
+    /* Make the invoice content fill page with small paper-like margins */
+    #invoice-content > div {
+        margin: 0.5cm !important;
+        padding: 0.5cm !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        background: white !important;
+    }
+
+    /* Hide modal controls/buttons from print */
+    #close-invoice-btn, #print-invoice-btn, .no-print {
+        display: none !important;
+    }
+
+    /* Typography adjustments for print */
+    .text-4xl { font-size: 2rem !important; }
+    .text-3xl { font-size: 1.75rem !important; }
+    .text-xl { font-size: 1.1rem !important; }
+
+    /* Ensure table layout is preserved */
+    table { page-break-inside: avoid; }
+
+    /* Prevent other page background colors from printing */
+    .bg-white, .bg-purple-50, .bg-purple-100, .bg-gray-50 {
+        background-color: white !important;
+    }
+}
+
+    </style>
+</head>
+<body class="p-4 md:p-8 flex justify-center items-start">
+
+    <!-- Main Container -->
+    <div id="app" class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- Column 1: Current Bill & Input -->
+        <div class="lg:col-span-1 no-print">
+            <div class="calculator-card bg-white p-6 rounded-xl border-t-4 border-purple-500 sticky top-8">
+                <h2 class="text-2xl font-extrabold text-gray-800 mb-4 flex items-center">
+                    New Weight Entry (वजन दर्ज करें)
+                    <span id="auth-status" class="ml-auto text-xs font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Local Storage</span>
+                </h2>
+                
+                <!-- Customer Name Input -->
+                <div class="mb-4">
+                    <label for="customer-name" class="block text-sm font-medium text-gray-700">Customer Name (ग्राहक का नाम) <span class="text-red-500">*</span></label>
+                    <input type="text" id="customer-name" placeholder="e.g., Ramesh & Sons"
+                           class="w-full mt-1 rounded-lg border-gray-300 p-3 shadow-sm focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out">
+                </div>
+
+                <!-- Weight Input Field -->
+                <div class="mb-4 border-t pt-4">
+                    <label for="weight-input" class="block text-sm font-medium text-gray-700">Add Item Weight (वजन डालें - kg)</label>
+                    <div class="mt-1 flex rounded-lg shadow-sm">
+                        <input type="number" step="0.01" id="weight-input" placeholder="e.g., 5.25"
+                               class="flex-1 block w-full rounded-l-lg border-gray-300 p-3 focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out">
+                        <button id="add-weight-btn"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-lg shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition duration-150 ease-in-out">
+                            Add (जोड़ें)
+                        </button>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">वजन दर्ज करने के लिए **Enter** दबाएँ. खाली Enter से बिल सेव होगा.</p>
+                </div>
+
+                <!-- List of Current Entries -->
+                <div class="mb-6 bg-gray-50 p-3 rounded-lg max-h-60 overflow-y-auto custom-scrollbar">
+                    <p class="text-xs font-semibold uppercase text-gray-500 mb-2">Items List (सामानों की सूची) - Newest Top:</p>
+                    <ul id="current-entries" class="space-y-2">
+                        <!-- Entries will be inserted here -->
+                    </ul>
+                </div>
+
+                <!-- Totals Display -->
+                <div class="p-4 bg-purple-100 rounded-lg shadow-inner">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-lg font-medium text-gray-700">Total Items Count (कुल सामान):</span>
+                        <span id="total-count" class="text-xl font-bold text-purple-700">0</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2">
+                        <span class="text-2xl font-extrabold text-gray-800">Total Weight (कुल वजन - KG):</span>
+                        <span id="total-sum" class="text-4xl font-extrabold text-purple-800">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <button id="save-bill-btn" disabled
+                        class="mt-6 w-full flex justify-center py-3 px-4 border border-transparent text-lg font-bold rounded-lg shadow-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 transition duration-150 ease-in-out">
+                    Save Bill & New
+                </button>
+            </div>
+        </div>
+
+        <!-- Column 2 & 3: Invoice History -->
+        <div class="lg:col-span-2">
+            <div class="calculator-card bg-white p-6 rounded-xl border-t-4 border-gray-500">
+                <h2 class="text-2xl font-extrabold text-gray-800 mb-6">History </h2>
+
+                <!-- Local Storage Warning -->
+                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                    <strong class="font-semibold">Note:</strong> Data is saved in your browser's **Local Storage**. If you clear browser data, history will be lost.
+                </div>
+
+                <!-- History List -->
+                <div id="history-list" class="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar p-1">
+                    <p id="loading-history" class="text-center text-gray-500">Loading invoices...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Box/Modal -->
+    <div id="message-box" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl transform transition-all duration-300 scale-100">
+            <h3 id="message-title" class="text-xl font-bold mb-4 text-gray-800">Alert</h3>
+            <p id="message-body" class="mb-6 text-gray-600">This is a message.</p>
+            <div id="message-actions" class="flex justify-end space-x-3">
+                <button id="message-confirm-btn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 hidden">Confirm</button>
+                <button id="message-close-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Invoice Modal -->
+    <div id="invoice-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-xl max-w-4xl w-full mx-auto shadow-2xl modal-content-wrapper">
+            <!-- Invoice Scroll Area -->
+            <div id="invoice-scroll-area" class="p-6 border border-gray-300 rounded-lg custom-scrollbar">
+                <div id="invoice-content">
+                    <!-- Invoice content will be dynamically inserted here -->
+                </div>
+            </div>
+            <!-- Invoice Footer/Actions -->
+            <div class="mt-6 flex justify-end space-x-3 no-print flex-shrink-0">
+                <button id="print-invoice-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Print/PDF </button>
+                <button id="close-invoice-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Close </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Local Storage Logic -->
+    <script type="module">
+        // Local Storage Key
+        const LOCAL_STORAGE_KEY = 'himanshuClothsInvoices';
+
+        let currentEntries = [];
+        let editingInvoiceId = null;
+
+        // Utility function for message box (replacing alert/confirm)
+        const showMessageBox = (title, body, isConfirm = false, onConfirm = () => {}) => {
+            document.getElementById('message-title').textContent = title;
+            document.getElementById('message-body').innerHTML = body;
+            document.getElementById('message-box').classList.remove('hidden');
+            document.getElementById('message-box').classList.add('flex');
+
+            const confirmBtn = document.getElementById('message-confirm-btn');
+            const closeBtn = document.getElementById('message-close-btn');
+
+            confirmBtn.onclick = () => {
+                document.getElementById('message-box').classList.add('hidden');
+                document.getElementById('message-box').classList.remove('flex');
+                onConfirm();
+            };
+
+            closeBtn.onclick = () => {
+                document.getElementById('message-box').classList.add('hidden');
+                document.getElementById('message-box').classList.remove('flex');
+            };
+
+            if (isConfirm) {
+                confirmBtn.classList.remove('hidden');
+            } else {
+                confirmBtn.classList.add('hidden');
+            }
+        };
+
+        // --- LOCAL STORAGE OPERATIONS ---
+
+        const loadInvoicesFromLocalStorage = () => {
+            try {
+                const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+                return JSON.parse(data) || [];
+            } catch (e) {
+                console.error("Error loading data from localStorage:", e);
+                return [];
+            }
+        };
+
+        const saveInvoicesToLocalStorage = (invoices) => {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(invoices));
+            } catch (e) {
+                console.error("Error saving data to localStorage:", e);
+                showMessageBox("Storage Error", "Could not save data to local storage. Storage might be full.");
+            }
+        };
+        
+        const generateInvoiceId = () => {
+            return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+        };
+
+        const renderHistory = (invoices) => {
+            const historyList = document.getElementById('history-list');
+            
+            invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            if (!historyList) return; 
+
+            historyList.innerHTML = '';
+
+            if (invoices.length === 0) {
+                historyList.innerHTML = '<p class="text-center text-gray-500 italic p-4">No saved bills found. Save a bill to see history!</p>';
+                return;
+            }
+
+            invoices.forEach(invoice => {
+                const invoiceId = invoice.id;
+                const formattedDate = new Date(invoice.date).toLocaleString('en-IN'); 
+
+                const item = document.createElement('div');
+                item.className = 'bg-gray-50 p-4 rounded-lg border-l-4 border-purple-500 shadow hover:shadow-lg transition duration-200';
+                item.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-lg text-purple-800">INV-${invoiceId.substring(0, 8).toUpperCase()}</span>
+                        <span class="text-xs text-gray-500">${formattedDate}</span>
+                    </div>
+                    <p class="text-sm text-gray-800 mb-2">Customer: <strong class="font-semibold">${invoice.customerName || 'N/A'}</strong></p>
+                    <div class="text-sm text-gray-700 space-y-1">
+                        <p>Total Weight: <strong class="font-semibold text-purple-600">${invoice.totalWeight.toFixed(2)} KG</strong></p>
+                        <p>Total Items: <strong class="font-semibold">${invoice.totalItems}</strong></p>
+                    </div>
+                    <div class="mt-3 flex space-x-2">
+                        <button data-id="${invoiceId}" data-action="view" class="view-invoice-btn px-3 py-1 text-xs font-medium text-white bg-blue-500 rounded hover:bg-blue-600">View (देखें)</button>
+                        <button data-id="${invoiceId}" data-action="edit" class="edit-invoice-btn px-3 py-1 text-xs font-medium text-white bg-orange-500 rounded hover:bg-orange-600">Load to Edit (बदलने के लिए लोड करें)</button>
+                        <button data-id="${invoiceId}" data-action="delete" class="delete-invoice-btn px-3 py-1 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600">Delete (मिटाएँ)</button>
+                    </div>
+                `;
+                historyList.appendChild(item);
+            });
+
+            // Attach event listeners
+            document.querySelectorAll('.view-invoice-btn').forEach(btn => btn.addEventListener('click', handleInvoiceAction));
+            document.querySelectorAll('.edit-invoice-btn').forEach(btn => btn.addEventListener('click', handleInvoiceAction));
+            document.querySelectorAll('.delete-invoice-btn').forEach(btn => btn.addEventListener('click', handleInvoiceAction));
+        };
+
+        const saveCurrentBill = (docId = null) => {
+            const customerNameInput = document.getElementById('customer-name');
+
+            if (!customerNameInput.value.trim()) {
+                showMessageBox("Input Required", "Please enter the **Customer Name** before saving the bill. (बिल सेव करने से पहले ग्राहक का नाम दर्ज करें.)");
+                customerNameInput.focus();
+                return;
+            }
+
+            if (currentEntries.length === 0) {
+                 showMessageBox("Note", "The current bill is empty. Add weights before saving. (मौजूदा बिल खाली है. सेव करने से पहले वजन डालें.)");
+                return;
+            }
+
+            const totalSum = currentEntries.reduce((sum, entry) => sum + entry.entry, 0);
+            const invoices = loadInvoicesFromLocalStorage();
+
+            const invoiceData = {
+                id: docId || generateInvoiceId(),
+                customerName: customerNameInput.value.trim(),
+                date: new Date().toISOString(),
+                values: currentEntries.map(e => ({ entry: parseFloat(e.entry.toFixed(2)), timestamp: e.timestamp })), 
+                totalWeight: parseFloat(totalSum.toFixed(2)),
+                totalItems: currentEntries.length,
+            };
+
+            let actionMessage = "saved";
+            
+            if (docId) {
+                const index = invoices.findIndex(inv => inv.id === docId);
+                if (index !== -1) {
+                    invoices[index] = invoiceData;
+                    actionMessage = `updated`;
+                } else {
+                    invoices.push(invoiceData);
+                }
+            } else {
+                invoices.push(invoiceData);
+            }
+            
+            saveInvoicesToLocalStorage(invoices);
+            renderHistory(invoices);
+
+            viewInvoice(invoiceData, invoiceData.id);
+
+            showMessageBox("Success!", `Bill **INV-${invoiceData.id.substring(0, 8)}** for **${invoiceData.customerName}** successfully **${actionMessage}**.`);
+            
+            resetCalculator();
+        };
+
+        const loadInvoiceForEditing = (docId) => {
+            const invoices = loadInvoicesFromLocalStorage();
+            const invoice = invoices.find(inv => inv.id === docId);
+
+            if (invoice) {
+                // Set Customer Name
+                document.getElementById('customer-name').value = invoice.customerName || '';
+
+                // Load Entries
+                currentEntries = JSON.parse(JSON.stringify(invoice.values || []));
+                currentEntries.forEach(entry => {
+                    entry.entry = parseFloat(entry.entry);
+                });
+
+                editingInvoiceId = docId;
+                updateUI();
+                showMessageBox("Editing Mode", `Bill **INV-${docId.substring(0, 8)}** for **${invoice.customerName || 'N/A'}** loaded for editing. Changes will **update** this bill when you save. (एडिटिंग मोड: बदलाव करने पर बिल अपडेट हो जाएगा.)`);
+                document.getElementById('save-bill-btn').textContent = `Update INV-${docId.substring(0, 4)} (Ctrl+S)`;
+            } else {
+                showMessageBox("Error", "Bill not found. (बिल नहीं मिला.)");
+            }
+        };
+
+        // --- CALCULATOR & UI LOGIC ---
+
+        const calculateTotals = () => {
+            const totalSum = currentEntries.reduce((sum, entry) => sum + entry.entry, 0);
+
+            document.getElementById('total-sum').textContent = totalSum.toFixed(2);
+            document.getElementById('total-count').textContent = currentEntries.length;
+            
+            document.getElementById('save-bill-btn').disabled = currentEntries.length === 0;
+        };
+
+        const updateEntryValue = (index, newValue) => {
+            const numValue = parseFloat(newValue);
+            if (!isNaN(numValue) && numValue > 0) {
+                currentEntries[index].entry = numValue;
+                updateUI();
+            } else {
+                 showMessageBox("Invalid Value", "Please enter a valid positive weight. (कृपया एक सही और सकारात्मक वजन डालें.)");
+            }
+        };
+
+        const startEditEntry = (index) => {
+            const li = document.getElementById(`entry-${index}`);
+            if (!li) return;
+
+            const currentEntry = currentEntries[index].entry;
+            
+            // Toggle to Edit Mode
+            li.innerHTML = `
+                <input type="number" step="0.01" value="${currentEntry.toFixed(2)}" id="edit-input-${index}" 
+                       class="w-24 p-1 border border-blue-300 rounded focus:ring-blue-500 focus:border-blue-500 text-sm font-mono text-gray-800">
+                <div class="space-x-1">
+                    <button data-index="${index}" class="save-edit-btn px-2 py-1 text-xs font-medium text-white bg-blue-500 rounded hover:bg-blue-600">
+                        Save
+                    </button>
+                    <button data-index="${index}" class="cancel-edit-btn px-2 py-1 text-xs font-medium text-gray-800 bg-gray-200 rounded hover:bg-gray-300">
+                        Cancel
+                    </button>
+                </div>
+            `;
+            
+            const saveBtn = li.querySelector('.save-edit-btn');
+            const cancelBtn = li.querySelector('.cancel-edit-btn');
+            const input = li.querySelector(`#edit-input-${index}`);
+
+            input.focus();
+            input.select();
+
+            const saveEditHandler = () => {
+                const newValue = input.value;
+                updateEntryValue(index, newValue);
+            };
+
+            saveBtn.addEventListener('click', saveEditHandler);
+            cancelBtn.addEventListener('click', () => updateUI()); 
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEditHandler();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    updateUI();
+                }
+            });
+        };
+
+        const updateUI = () => {
+            calculateTotals(); // Re-calculate totals
+
+            const entriesList = document.getElementById('current-entries');
+            entriesList.innerHTML = '';
+
+            if (currentEntries.length === 0) {
+                entriesList.innerHTML = '<li id="no-entries-message" class="text-sm text-gray-400 italic">Abhi tak koi vajan nahi joda gaya. (कोई वजन नहीं जोड़ा गया है)</li>';
+            } else {
+                // Loop in reverse (newest entry has the highest index) to display newest entry at the top (as requested)
+                for (let i = currentEntries.length - 1; i >= 0; i--) {
+                    const item = currentEntries[i];
+                    const li = document.createElement('li');
+                    li.id = `entry-${i}`; // Add ID for direct manipulation
+                    li.className = 'flex justify-between items-center text-sm p-2 bg-white rounded shadow-sm';
+                    li.innerHTML = `
+                        <span class="font-mono text-base text-gray-800 font-semibold">${item.entry.toFixed(2)} KG</span>
+                        <div class="flex space-x-2">
+                            <button data-index="${i}" class="start-edit-btn text-orange-500 hover:text-orange-700 transition duration-150 ease-in-out" title="Edit Entry">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                            <button data-index="${i}" class="remove-entry-btn text-red-500 hover:text-red-700 transition duration-150 ease-in-out" title="Remove Entry">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3m4 0h4"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                    entriesList.appendChild(li); 
+                }
+            }
+
+            // Attach listeners to new buttons
+            document.querySelectorAll('.remove-entry-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                    removeEntry(index);
+                });
+            });
+
+            document.querySelectorAll('.start-edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                    startEditEntry(index);
+                });
+            });
+        };
+
+        const addEntry = (value) => {
+            const weightInput = document.getElementById('weight-input');
+            let numValue;
+            let inputValue = value !== undefined ? value : weightInput.value;
+
+            if (inputValue.trim()) {
+                numValue = parseFloat(inputValue);
+
+                if (isNaN(numValue) || numValue <= 0) {
+                    showMessageBox("Invalid Input", "Please enter a valid positive weight (e.g., 5.25 kg).");
+                    weightInput.focus();
+                    return;
+                }
+
+                currentEntries.push({
+                    entry: numValue,
+                    timestamp: Date.now()
+                });
+                
+                weightInput.value = '';
+            } else {
+                return;
+            }
+            
+            updateUI();
+            weightInput.focus(); 
+        };
+
+        const removeEntry = (index) => {
+            currentEntries.splice(index, 1);
+            updateUI();
+        };
+
+        const resetCalculator = () => {
+            currentEntries = [];
+            editingInvoiceId = null;
+            document.getElementById('customer-name').value = '';
+            document.getElementById('weight-input').value = '';
+            document.getElementById('save-bill-btn').textContent = 'Save Bill & New ';
+            updateUI();
+            document.getElementById('customer-name').focus(); 
+        };
+
+        // --- INVOICE GENERATION & DISPLAY ---
+
+        const generateInvoiceHTML = (invoice, docId) => {
+            const formattedDate = new Date(invoice.date).toLocaleString('en-IN');
+            const invoiceIdShort = docId.substring(0, 8).toUpperCase();
+            
+            const reversedValues = [...invoice.values].reverse(); 
+
+            let itemsHTML = reversedValues.map((item, index) => {
+                return `
+                    <tr class="border-b hover:bg-gray-50 transition duration-100">
+                        <td class="px-4 py-2 text-sm text-gray-700 font-medium">${reversedValues.length - index}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">Item ${reversedValues.length - index} - Weight </td>
+                        <td class="px-4 py-2 text-sm text-right font-mono font-bold text-gray-800 table-weight-col">${item.entry.toFixed(2)} KG</td>
+                    </tr>
+                `;
+            }).join('');
+
+            return `
+                <div class="bg-white p-6 rounded-lg">
+                    <div class="text-center mb-6 border-b pb-4">
+                        <h1 class="text-4xl font-extrabold text-purple-700 mb-1">HIMANSHU TECHNOLOGY LIMITED - WEIGHT SLIP</h1>
+                        <p class="text-lg font-semibold text-gray-600">Owner: HEMANT JAIN </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 text-base mb-6 border-b pb-4">
+                        <div class="text-gray-700">
+                            <p class="font-bold text-xl text-purple-800">Customer: ${invoice.customerName || 'N/A'}</p>
+                        </div>
+                        <div class="text-right text-gray-700">
+                            <p class="font-bold">Bill ID: <span class="font-mono text-purple-800">INV-${invoiceIdShort}</span></p>
+                            <p>Date & Time: ${formattedDate}</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-bold mb-3 text-gray-800 border-b-2 border-purple-100 pb-1">Item Details (सामान विवरण)</h3>
+                    <table class="min-w-full divide-y divide-gray-200 mb-6 border border-gray-200 rounded-lg">
+                        <thead>
+                            <tr class="bg-purple-50">
+                                <th class="px-4 py-3 text-left text-xs font-medium text-purple-700 uppercase tracking-wider rounded-tl-lg">#</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-purple-700 uppercase tracking-wider">Description (विवरण)</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-purple-700 uppercase tracking-wider rounded-tr-lg">Weight (KG)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${itemsHTML}
+                        </tbody>
+                    </table>
+
+                    <div class="border-t-4 border-double border-purple-500 pt-4 bg-purple-100 p-4 rounded-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-lg font-medium text-gray-700">Total Items Count:</span>
+                            <span class="text-xl font-bold text-gray-900">${invoice.totalItems}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-purple-300 pt-2">
+                            <span class="text-2xl font-extrabold text-gray-900">GRAND TOTAL WEIGHT (कुल वजन):</span>
+                            <span class="text-4xl font-extrabold text-purple-800">${invoice.totalWeight.toFixed(2)} KG</span>
+                        </div>
+                    </div>
+
+                    <p class="mt-8 text-center text-sm text-gray-500 border-t pt-4">This is a weight tracking slip only. Thank you. (यह केवल वजन ट्रैकिंग पर्ची है. धन्यवाद.)</p>
+                </div>
+            `;
+        };
+
+        const viewInvoice = (invoice, docId) => {
+            document.getElementById('invoice-content').innerHTML = generateInvoiceHTML(invoice, docId);
+            document.getElementById('invoice-modal').classList.remove('hidden');
+            document.getElementById('invoice-modal').classList.add('flex');
+        };
+
+        const handleInvoiceAction = (e) => {
+            const docId = e.currentTarget.getAttribute('data-id');
+            const action = e.currentTarget.getAttribute('data-action');
+            
+            const invoices = loadInvoicesFromLocalStorage();
+            const invoice = invoices.find(inv => inv.id === docId);
+
+            if (!invoice) {
+                showMessageBox("Error", "Bill document not found. (बिल नहीं मिला.)");
+                return;
+            }
+
+            switch (action) {
+                case 'view':
+                    viewInvoice(invoice, docId);
+                    break;
+                case 'edit':
+                    loadInvoiceForEditing(docId);
+                    break;
+                case 'delete':
+                    deleteInvoice(docId);
+                    break;
+            }
+        };
+        
+        const deleteInvoice = (docId) => {
+            showMessageBox("Confirm Delete", `Are you sure you want to delete Bill **INV-${docId.substring(0, 8)}** for **${loadInvoicesFromLocalStorage().find(inv => inv.id === docId)?.customerName || 'N/A'}**? This cannot be undone. (क्या आप इस बिल को मिटाना चाहते हैं? यह वापस नहीं हो सकता.)`, true, () => {
+                let invoices = loadInvoicesFromLocalStorage();
+                const initialLength = invoices.length;
+                
+                invoices = invoices.filter(inv => inv.id !== docId);
+
+                if (invoices.length < initialLength) {
+                    saveInvoicesToLocalStorage(invoices);
+                    renderHistory(invoices);
+                    showMessageBox("Success", "Bill successfully deleted. (बिल सफलतापूर्वक मिटा दिया गया.)");
+                } else {
+                    showMessageBox("Error", "Bill not found or failed to delete. (बिल नहीं मिला या मिटाया नहीं जा सका.)");
+                }
+            });
+        };
+
+        // --- EVENT HANDLERS ---
+
+        const handleAddButtonClick = () => {
+            addEntry();
+        };
+
+        const handleInputKeyDown = (e) => {
+            const weightInput = document.getElementById('weight-input');
+            const inputValue = weightInput.value.trim();
+            const currentFocus = document.activeElement;
+
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                
+                // If focus is on customer name, move to weight input
+                if (currentFocus.id === 'customer-name') {
+                    document.getElementById('weight-input').focus();
+                    return;
+                }
+                
+                // If weight input has value, add entry
+                if (inputValue) {
+                    addEntry();
+                } else if (currentEntries.length > 0) {
+                    // If weight input is empty BUT we have entries, trigger save
+                    const saveBtn = document.getElementById('save-bill-btn');
+                    if (!saveBtn.disabled) {
+                        saveCurrentBill(editingInvoiceId);
+                    }
+                } else {
+                    showMessageBox("Empty Input", "Please enter a weight value or add items to save a bill. (कृपया वजन डालें या बिल सहेजने के लिए आइटम जोड़ें.)");
+                }
+            }
+        };
+
+        // --- INITIALIZATION ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const weightInput = document.getElementById('weight-input');
+            const customerNameInput = document.getElementById('customer-name');
+
+            // Initial focus on customer name
+            customerNameInput.focus();
+
+            renderHistory(loadInvoicesFromLocalStorage());
+
+            // Add Entry Listener
+            document.getElementById('add-weight-btn').addEventListener('click', handleAddButtonClick);
+            
+            // Enter key listener (now handles Add and Save)
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('keydown', handleInputKeyDown);
+            });
+
+            // Save/Update Bill Listener
+            document.getElementById('save-bill-btn').addEventListener('click', () => {
+                saveCurrentBill(editingInvoiceId);
+            });
+
+            // Global Keyboard Shortcut for Saving (Ctrl+S or Cmd+S)
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault(); 
+                    const saveBtn = document.getElementById('save-bill-btn');
+                    if (!saveBtn.disabled) {
+                        saveCurrentBill(editingInvoiceId);
+                    }
+                }
+            });
+
+            // Close Invoice Modal Listener
+            document.getElementById('close-invoice-btn').addEventListener('click', () => {
+                document.getElementById('invoice-modal').classList.add('hidden');
+                document.getElementById('invoice-modal').classList.remove('flex');
+            });
+
+            // Print Invoice Listener
+            document.getElementById('print-invoice-btn').addEventListener('click', () => {
+                window.print();
+            });
+
+            // Initial UI Update
+            updateUI();
+        });
+
+    </script>
+</body>
+</html>
